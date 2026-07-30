@@ -34,7 +34,8 @@ export const createPayment = catchAsync(async (req: Request, res: Response) => {
   }
 
   const transactionId = `GU-${Date.now()}-${crypto.randomBytes(4).toString("hex")}`;
-
+  console.log("SUCCESS URL =", env.CLIENT_SUCCESS_URL);
+  console.log("CANCEL URL =", env.CLIENT_CANCEL_URL);
   const session = await stripe.checkout.sessions.create({
     mode: "payment",
     payment_method_types: ["card"],
