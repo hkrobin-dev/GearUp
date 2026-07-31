@@ -36,3 +36,20 @@ export const createReview = catchAsync(async (req: Request, res: Response) => {
 
   sendSuccess(res, 201, "Review submitted successfully", review);
 });
+export const getReviews = catchAsync(async (req: Request, res: Response) => {
+  const reviews = await prisma.review.findMany({
+    include: {
+      customer: {
+        select: {
+          name: true,
+        },
+      },
+    },
+    orderBy: {
+      createdAt: "desc",
+    },
+    take: 6,
+  });
+
+  sendSuccess(res, 200, "Reviews fetched successfully", reviews);
+});
