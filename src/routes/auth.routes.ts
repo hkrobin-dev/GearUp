@@ -19,6 +19,9 @@ import { authenticate } from "../middleware/auth";
 
 const router = Router();
 
+// প্রোডাকশন ও লোকাল এনভায়রনমেন্ট ডাইনামিক রাখার জন্য
+const FRONTEND_URL = process.env.FRONTEND_URL || "http://localhost:3000";
+
 // ========================================
 // Email / Password Authentication
 // ========================================
@@ -45,7 +48,7 @@ router.get(
 // Google OAuth
 // ========================================
 
-// Step 1: User goes to this URL
+// Step 1: Initiates Google Login
 // GET /api/auth/google
 router.get(
   "/google",
@@ -55,14 +58,13 @@ router.get(
   })
 );
 
-// Step 2: Google redirects here
+// Step 2: Google Redirects here
 // GET /api/auth/google/callback
 router.get(
   "/google/callback",
   passport.authenticate("google", {
     session: false,
-    failureRedirect:
-      "http://localhost:3000/auth/login?error=google",
+    failureRedirect: `${FRONTEND_URL}/auth/login?error=google`,
   }),
   googleCallback
 );
