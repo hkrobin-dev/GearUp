@@ -17,9 +17,8 @@
     "sourceMap": false,
     "noImplicitAny": true,
     "strictNullChecks": true,
-    "baseUrl": ".",
     "paths": {
-      "@/*": ["src/*"]
+      "@/*": ["./src/*"]
     }
   },
   "include": ["src/**/*", "prisma.config.ts"],
