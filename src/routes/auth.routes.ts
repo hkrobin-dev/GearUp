@@ -69,4 +69,8 @@ router.get(
   googleCallback
 );
 
+// auth.routes.ts
+router.get("/test", (req, res) => {
+  res.json({ message: "Auth route is working!" });
+});
 export default router;
