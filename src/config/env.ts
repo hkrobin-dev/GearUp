@@ -26,8 +26,7 @@ export const env = {
   // Stripe
   STRIPE_SECRET_KEY: process.env.STRIPE_SECRET_KEY || "",
 
-  STRIPE_WEBHOOK_SECRET:
-    process.env.STRIPE_WEBHOOK_SECRET || "",
+  STRIPE_WEBHOOK_SECRET: process.env.STRIPE_WEBHOOK_SECRET || "",
 
   CLIENT_SUCCESS_URL:
     process.env.CLIENT_SUCCESS_URL ||
@@ -37,17 +36,17 @@ export const env = {
     process.env.CLIENT_CANCEL_URL ||
     "http://localhost:3000/api/payment/cancel",
 
-  // Google OAuth
-  GOOGLE_CLIENT_ID: required("GOOGLE_CLIENT_ID"),
+  // Google OAuth — NOT required at startup. If these are missing, the
+  // /api/auth/google routes simply won't work, but the rest of the API
+  // (register/login/gear/rentals/payments/etc.) keeps running fine.
+  GOOGLE_CLIENT_ID: process.env.GOOGLE_CLIENT_ID || "",
 
-  GOOGLE_CLIENT_SECRET: required("GOOGLE_CLIENT_SECRET"),
+  GOOGLE_CLIENT_SECRET: process.env.GOOGLE_CLIENT_SECRET || "",
 
   GOOGLE_CALLBACK_URL:
     process.env.GOOGLE_CALLBACK_URL ||
     "http://localhost:5000/api/auth/google/callback",
 
   // Frontend URL
-  CLIENT_URL:
-    process.env.CLIENT_URL ||
-    "http://localhost:3000",
+  CLIENT_URL: process.env.CLIENT_URL || "http://localhost:3000",
 };

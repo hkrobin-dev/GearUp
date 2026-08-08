@@ -49,6 +49,15 @@ export const login = catchAsync(async (req: Request, res: Response) => {
     throw new ApiError(403, "Your account has been suspended. Contact support.");
   }
 
+  // Google-only accounts have no password set. Guard against that before
+  // calling bcrypt.compare, which requires a real string on both sides.
+  if (!user.password) {
+    throw new ApiError(
+      400,
+      "This account uses Google Sign-In. Please log in with Google instead."
+    );
+  }
+
   const isPasswordValid = await bcrypt.compare(password, user.password);
   if (!isPasswordValid) {
     throw new ApiError(401, "Invalid email or password.");
