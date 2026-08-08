@@ -7,10 +7,11 @@ import ApiError from "../utils/ApiError";
 import { sendSuccess } from "../utils/ApiResponse";
 import crypto from "crypto";
 import Stripe from "stripe";
+import { User } from "@prisma/client"; // 1. Prisma User type import করা হয়েছে
 
 // POST /api/payments/create
-// Creates a Stripe Checkout Session for a rental order and a PENDING Payment record.
 export const createPayment = catchAsync(async (req: Request, res: Response) => {
+  const user = req.user as User; // 2. Typecast করা হয়েছে
   const { rentalOrderId } = req.body;
 
   const order = await prisma.rentalOrder.findUnique({
@@ -19,7 +20,7 @@ export const createPayment = catchAsync(async (req: Request, res: Response) => {
   });
 
   if (!order) throw new ApiError(404, "Rental order not found.");
-  if (order.customerId !== req.user!.id) {
+  if (order.customerId !== user.id) {
     throw new ApiError(403, "You do not own this rental order.");
   }
   if (!["PLACED", "CONFIRMED"].includes(order.status)) {
@@ -74,9 +75,6 @@ export const createPayment = catchAsync(async (req: Request, res: Response) => {
 });
 
 // POST /api/payments/webhook
-// Stripe calls this directly (signed, raw body). Configured with express.raw()
-// in app.ts BEFORE the global JSON parser, since Stripe signature verification
-// requires the untouched raw request body.
 export const stripeWebhook = catchAsync(async (req: Request, res: Response) => {
   const sig = req.headers["stripe-signature"] as string;
   let event: Stripe.Event;
@@ -96,9 +94,6 @@ export const stripeWebhook = catchAsync(async (req: Request, res: Response) => {
 });
 
 // POST /api/payments/confirm
-// Manual confirm by an authenticated client using session_id. This is the
-// fallback/dev flow used for grading via Postman when a live webhook
-// endpoint (public HTTPS URL) isn't reachable from Stripe.
 export const confirmPayment = catchAsync(async (req: Request, res: Response) => {
   const { sessionId } = req.body;
   if (!sessionId) {
@@ -133,12 +128,13 @@ async function finalizePayment(stripeSessionId: string) {
   return updatedPayment;
 }
 
-// GET /api/payments - current user's payment history (or all, if admin)
+// GET /api/payments - current user's payment history
 export const getMyPayments = catchAsync(async (req: Request, res: Response) => {
+  const user = req.user as User; // 3. Typecast করা হয়েছে
   const where =
-    req.user!.role === "ADMIN"
+    user.role === "ADMIN"
       ? {}
-      : { rentalOrder: { customerId: req.user!.id } };
+      : { rentalOrder: { customerId: user.id } };
 
   const payments = await prisma.payment.findMany({
     where,
@@ -150,6 +146,7 @@ export const getMyPayments = catchAsync(async (req: Request, res: Response) => {
 });
 
 export const getPaymentById = catchAsync(async (req: Request, res: Response) => {
+  const user = req.user as User; // 4. Typecast করা হয়েছে
   const payment = await prisma.payment.findUnique({
     where: { id: req.params.id },
     include: { rentalOrder: true },
@@ -157,8 +154,8 @@ export const getPaymentById = catchAsync(async (req: Request, res: Response) => 
 
   if (!payment) throw new ApiError(404, "Payment not found.");
 
-  const isOwner = payment.rentalOrder.customerId === req.user!.id;
-  if (!isOwner && req.user!.role !== "ADMIN") {
+  const isOwner = payment.rentalOrder.customerId === user.id;
+  if (!isOwner && user.role !== "ADMIN") {
     throw new ApiError(403, "You do not have access to this payment.");
   }
 

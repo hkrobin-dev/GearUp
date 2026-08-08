@@ -5,6 +5,7 @@ import catchAsync from "../utils/catchAsync";
 import ApiError from "../utils/ApiError";
 import { sendSuccess } from "../utils/ApiResponse";
 import { signToken } from "../utils/jwt";
+import { env } from "../config/env";
 
 const userPublicSelect = {
   id: true,
@@ -61,8 +62,12 @@ export const login = catchAsync(async (req: Request, res: Response) => {
 });
 
 export const getMe = catchAsync(async (req: Request, res: Response) => {
+  const authUser = req.user as {
+    id: string;
+  };
+
   const user = await prisma.user.findUnique({
-    where: { id: req.user!.id },
+    where: { id: authUser.id },
     select: userPublicSelect,
   });
 
@@ -72,3 +77,27 @@ export const getMe = catchAsync(async (req: Request, res: Response) => {
 
   sendSuccess(res, 200, "Current user fetched", user);
 });
+
+export const googleCallback = catchAsync(
+  async (req: Request, res: Response) => {
+    const user = req.user as {
+      id: string;
+      role: "CUSTOMER" | "PROVIDER" | "ADMIN";
+      email: string;
+    };
+
+    if (!user) {
+      throw new ApiError(401, "Google authentication failed.");
+    }
+
+    const token = signToken({
+      id: user.id,
+      role: user.role,
+      email: user.email,
+    });
+
+    res.redirect(
+      `${env.CLIENT_URL}/auth/google-success?token=${encodeURIComponent(token)}`
+    );
+  }
+);
