@@ -1,22 +1,27 @@
 {
   "compilerOptions": {
+    "typeRoots": ["./node_modules/@types", "./src/types"],
     "target": "ES2020",
-    "module": "commonjs",
+    "module": "NodeNext",
     "lib": ["ES2020"],
     "outDir": "./dist",
-    "rootDir": "./src",
+    "rootDir": ".",
     "strict": true,
     "esModuleInterop": true,
     "skipLibCheck": true,
     "forceConsistentCasingInFileNames": true,
     "resolveJsonModule": true,
-    "moduleResolution": "node",
+    "moduleResolution": "NodeNext",
     "types": ["node"],
     "declaration": false,
     "sourceMap": false,
     "noImplicitAny": true,
-    "strictNullChecks": true
+    "strictNullChecks": true,
+    "baseUrl": ".",
+    "paths": {
+      "@/*": ["src/*"]
+    }
   },
-  "include": ["src/**/*"],
+  "include": ["src/**/*", "prisma.config.ts"],
   "exclude": ["node_modules", "dist"]
 }
