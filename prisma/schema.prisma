@@ -1,12 +1,13 @@
 // GearUp - Prisma Schema
 // Run: npx prisma migrate dev --name init
 
-generator client {
-  provider = "prisma-client-js"
-}
-
 datasource db {
   provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+generator client {
+  provider = "prisma-client-js"
 }
 
 enum Role {
@@ -45,57 +46,58 @@ enum PaymentStatus {
 }
 
 model User {
-  id           String   @id @default(uuid())
-  name         String
-  email        String   @unique
-  password     String
-  phone        String?
-  role         Role     @default(CUSTOMER)
-  status       UserStatus @default(ACTIVE)
-  createdAt    DateTime @default(now())
-  updatedAt    DateTime @updatedAt
+  id        String     @id @default(uuid())
+  name      String
+  email     String     @unique
+  password  String?    // 👈 Google Auth-এর জন্য এটিকে অপশনাল (?) করা হলো
+  googleId  String?    @unique // 👈 Google User-দের ট্র্যাক করার জন্য নতুন ফিল্ড
+  phone     String?
+  role      Role       @default(CUSTOMER)
+  status    UserStatus @default(ACTIVE)
+  createdAt DateTime   @default(now())
+  updatedAt DateTime   @updatedAt
 
-  gearItems    GearItem[]      @relation("ProviderGear")
-  rentalOrders RentalOrder[]   @relation("CustomerRentals")
-  reviews      Review[]        @relation("CustomerReviews")
+  gearItems    GearItem[]    @relation("ProviderGear")
+  rentalOrders RentalOrder[] @relation("CustomerRentals")
+  reviews      Review[]      @relation("CustomerReviews")
 
   @@map("users")
 }
 
 model Category {
-  id          String     @id @default(uuid())
-  name        String     @unique
+  id          String   @id @default(uuid())
+  name        String   @unique
   description String?
-  createdAt   DateTime   @default(now())
-  updatedAt   DateTime   @updatedAt
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
 
-  gearItems   GearItem[]
+  gearItems GearItem[]
 
   @@map("categories")
 }
 
 model GearItem {
-  id              String   @id @default(uuid())
+  id              String     @id @default(uuid())
   name            String
   description     String
   brand           String?
-  pricePerDay     Decimal  @db.Decimal(10, 2)
+  pricePerDay     Decimal    @db.Decimal(10, 2)
   images          String[]
-  stock           Int      @default(1)
-  availableStock  Int      @default(1)
+  stock           Int        @default(1)
+  availableStock  Int        @default(1)
   specifications  Json?
   status          GearStatus @default(ACTIVE)
-  createdAt       DateTime @default(now())
-  updatedAt       DateTime @updatedAt
+  createdAt       DateTime   @default(now())
+  updatedAt       DateTime   @updatedAt
 
-  providerId      String
-  provider        User     @relation("ProviderGear", fields: [providerId], references: [id])
+  providerId String
+  provider   User   @relation("ProviderGear", fields: [providerId], references: [id])
 
-  categoryId      String
-  category        Category @relation(fields: [categoryId], references: [id])
+  categoryId String
+  category   Category @relation(fields: [categoryId], references: [id])
 
-  rentalItems     RentalOrderItem[]
-  reviews         Review[]
+  rentalItems RentalOrderItem[]
+  reviews     Review[]
 
   @@index([categoryId])
   @@index([providerId])
@@ -103,20 +105,20 @@ model GearItem {
 }
 
 model RentalOrder {
-  id            String       @id @default(uuid())
-  customerId    String
-  customer      User         @relation("CustomerRentals", fields: [customerId], references: [id])
+  id         String       @id @default(uuid())
+  customerId String
+  customer   User         @relation("CustomerRentals", fields: [customerId], references: [id])
 
-  startDate     DateTime
-  endDate       DateTime
-  totalAmount   Decimal      @db.Decimal(10, 2)
-  status        RentalStatus @default(PLACED)
+  startDate   DateTime
+  endDate     DateTime
+  totalAmount Decimal      @db.Decimal(10, 2)
+  status      RentalStatus @default(PLACED)
 
-  createdAt     DateTime     @default(now())
-  updatedAt     DateTime     @updatedAt
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 
-  items         RentalOrderItem[]
-  payments      Payment[]
+  items    RentalOrderItem[]
+  payments Payment[]
 
   @@index([customerId])
   @@map("rental_orders")
@@ -127,12 +129,12 @@ model RentalOrderItem {
   rentalOrderId String
   rentalOrder   RentalOrder @relation(fields: [rentalOrderId], references: [id], onDelete: Cascade)
 
-  gearItemId    String
-  gearItem      GearItem    @relation(fields: [gearItemId], references: [id])
+  gearItemId String
+  gearItem   GearItem @relation(fields: [gearItemId], references: [id])
 
-  quantity      Int         @default(1)
-  pricePerDay   Decimal     @db.Decimal(10, 2)
-  subtotal      Decimal     @db.Decimal(10, 2)
+  quantity    Int     @default(1)
+  pricePerDay Decimal @db.Decimal(10, 2)
+  subtotal    Decimal @db.Decimal(10, 2)
 
   @@index([rentalOrderId])
   @@index([gearItemId])
@@ -140,21 +142,21 @@ model RentalOrderItem {
 }
 
 model Payment {
-  id              String        @id @default(uuid())
-  transactionId   String        @unique
-  rentalOrderId   String
-  rentalOrder     RentalOrder   @relation(fields: [rentalOrderId], references: [id])
+  id            String        @id @default(uuid())
+  transactionId String        @unique
+  rentalOrderId String
+  rentalOrder   RentalOrder   @relation(fields: [rentalOrderId], references: [id])
 
-  amount          Decimal       @db.Decimal(10, 2)
-  method          PaymentMethod @default(STRIPE)
-  provider        String        @default("stripe")
-  status          PaymentStatus @default(PENDING)
+  amount   Decimal       @db.Decimal(10, 2)
+  method   PaymentMethod @default(STRIPE)
+  provider String        @default("stripe")
+  status   PaymentStatus @default(PENDING)
 
   stripeSessionId String?
   paidAt          DateTime?
 
-  createdAt       DateTime      @default(now())
-  updatedAt       DateTime      @updatedAt
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 
   @@index([rentalOrderId])
   @@map("payments")
@@ -168,9 +170,9 @@ model Review {
   gearItemId String
   gearItem   GearItem @relation(fields: [gearItemId], references: [id])
 
-  rating     Int
-  comment    String?
-  createdAt  DateTime @default(now())
+  rating    Int
+  comment   String?
+  createdAt DateTime @default(now())
 
   @@index([gearItemId])
   @@map("reviews")
