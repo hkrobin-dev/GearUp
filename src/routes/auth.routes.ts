@@ -1,5 +1,6 @@
 import { Router } from "express";
 import passport from "../config/passport";
+import { env } from "../config/env";
 
 import {
   register,
@@ -19,37 +20,20 @@ import { authenticate } from "../middleware/auth";
 
 const router = Router();
 
-// প্রোডাকশন ও লোকাল এনভায়রনমেন্ট ডাইনামিক রাখার জন্য
-const FRONTEND_URL = process.env.FRONTEND_URL || "http://localhost:3000";
+const FRONTEND_URL = env.CLIENT_URL;
 
 // ========================================
 // Email / Password Authentication
 // ========================================
 
-router.post(
-  "/register",
-  validate(registerSchema),
-  register
-);
-
-router.post(
-  "/login",
-  validate(loginSchema),
-  login
-);
-
-router.get(
-  "/me",
-  authenticate,
-  getMe
-);
+router.post("/register", validate(registerSchema), register);
+router.post("/login", validate(loginSchema), login);
+router.get("/me", authenticate, getMe);
 
 // ========================================
 // Google OAuth
 // ========================================
 
-// Step 1: Initiates Google Login
-// GET /api/auth/google
 router.get(
   "/google",
   passport.authenticate("google", {
@@ -58,8 +42,6 @@ router.get(
   })
 );
 
-// Step 2: Google Redirects here
-// GET /api/auth/google/callback
 router.get(
   "/google/callback",
   passport.authenticate("google", {
@@ -69,8 +51,8 @@ router.get(
   googleCallback
 );
 
-// auth.routes.ts
 router.get("/test", (req, res) => {
   res.json({ message: "Auth route is working!" });
 });
+
 export default router;

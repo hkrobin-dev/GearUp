@@ -7,7 +7,7 @@ import ApiError from "../utils/ApiError";
 import { sendSuccess } from "../utils/ApiResponse";
 import crypto from "crypto";
 import Stripe from "stripe";
-import { User } from "@prisma/client"; // 1. Prisma User type import করা হয়েছে
+import { User } from "@prisma/client";
 
 // POST /api/payments/create
 export const createPayment = catchAsync(async (req: Request, res: Response) => {
