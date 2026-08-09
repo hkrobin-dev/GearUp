@@ -13,8 +13,9 @@ googleCallback,
 import validate from "../middleware/validate";
 
 import {
-registerSchema,
-loginSchema,
+  registerSchema,
+  loginSchema,
+  updateProfileSchema,
 } from "../validations/auth.validation";
 
 import { authenticate } from "../middleware/auth";
@@ -52,11 +53,11 @@ getMe
 
 // Update current logged-in user's profile
 router.patch(
-"/me",
-authenticate,
-updateMe
+  "/me",
+  authenticate,
+  validate(updateProfileSchema),
+  updateMe
 );
-
 // ========================================
 // Google OAuth
 // ========================================

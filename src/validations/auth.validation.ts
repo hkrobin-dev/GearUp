@@ -18,3 +18,17 @@ export const loginSchema = z.object({
     password: z.string().min(1, "Password is required"),
   }),
 });
+
+export const updateProfileSchema = z.object({
+  body: z.object({
+    name: z
+      .string()
+      .min(2, "Name must be at least 2 characters")
+      .optional(),
+
+    phone: z
+      .string()
+      .max(20, "Phone number is too long")
+      .optional(),
+  }),
+});
