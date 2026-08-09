@@ -17,40 +17,72 @@ const userPublicSelect = {
   createdAt: true,
 };
 
+// ========================================
+// REGISTER
+// POST /api/auth/register
+// ========================================
 export const register = catchAsync(async (req: Request, res: Response) => {
   const { name, email, password, phone, role } = req.body;
 
-  const existingUser = await prisma.user.findUnique({ where: { email } });
+  const existingUser = await prisma.user.findUnique({
+    where: { email },
+  });
+
   if (existingUser) {
-    throw new ApiError(409, "An account with this email already exists.");
+    throw new ApiError(
+      409,
+      "An account with this email already exists."
+    );
   }
 
   const hashedPassword = await bcrypt.hash(password, 10);
 
   const user = await prisma.user.create({
-    data: { name, email, password: hashedPassword, phone, role },
+    data: {
+      name,
+      email,
+      password: hashedPassword,
+      phone,
+      role,
+    },
     select: userPublicSelect,
   });
 
-  const token = signToken({ id: user.id, role: user.role, email: user.email });
+  const token = signToken({
+    id: user.id,
+    role: user.role,
+    email: user.email,
+  });
 
-  sendSuccess(res, 201, "Registration successful", { user, token });
+  sendSuccess(res, 201, "Registration successful", {
+    user,
+    token,
+  });
 });
 
+// ========================================
+// LOGIN
+// POST /api/auth/login
+// ========================================
 export const login = catchAsync(async (req: Request, res: Response) => {
   const { email, password } = req.body;
 
-  const user = await prisma.user.findUnique({ where: { email } });
+  const user = await prisma.user.findUnique({
+    where: { email },
+  });
+
   if (!user) {
     throw new ApiError(401, "Invalid email or password.");
   }
 
   if (user.status === "SUSPENDED") {
-    throw new ApiError(403, "Your account has been suspended. Contact support.");
+    throw new ApiError(
+      403,
+      "Your account has been suspended. Please contact support."
+    );
   }
 
-  // Google-only accounts have no password set. Guard against that before
-  // calling bcrypt.compare, which requires a real string on both sides.
+  // Google-only accounts do not have a password
   if (!user.password) {
     throw new ApiError(
       400,
@@ -58,25 +90,42 @@ export const login = catchAsync(async (req: Request, res: Response) => {
     );
   }
 
-  const isPasswordValid = await bcrypt.compare(password, user.password);
+  const isPasswordValid = await bcrypt.compare(
+    password,
+    user.password
+  );
+
   if (!isPasswordValid) {
     throw new ApiError(401, "Invalid email or password.");
   }
 
-  const token = signToken({ id: user.id, role: user.role, email: user.email });
+  const token = signToken({
+    id: user.id,
+    role: user.role,
+    email: user.email,
+  });
 
   const { password: _pw, ...safeUser } = user;
 
-  sendSuccess(res, 200, "Login successful", { user: safeUser, token });
+  sendSuccess(res, 200, "Login successful", {
+    user: safeUser,
+    token,
+  });
 });
 
+// ========================================
+// GET CURRENT USER
+// GET /api/auth/me
+// ========================================
 export const getMe = catchAsync(async (req: Request, res: Response) => {
   const authUser = req.user as {
     id: string;
   };
 
   const user = await prisma.user.findUnique({
-    where: { id: authUser.id },
+    where: {
+      id: authUser.id,
+    },
     select: userPublicSelect,
   });
 
@@ -84,9 +133,70 @@ export const getMe = catchAsync(async (req: Request, res: Response) => {
     throw new ApiError(404, "User not found.");
   }
 
-  sendSuccess(res, 200, "Current user fetched", user);
+  sendSuccess(
+    res,
+    200,
+    "Current user fetched",
+    user
+  );
 });
 
+// ========================================
+// UPDATE CURRENT USER PROFILE
+// PATCH /api/auth/me
+// ========================================
+export const updateMe = catchAsync(
+  async (req: Request, res: Response) => {
+    const authUser = req.user as {
+      id: string;
+    };
+
+    const { name, phone } = req.body;
+
+    if (name === undefined && phone === undefined) {
+      throw new ApiError(400, "Nothing to update.");
+    }
+
+    const user = await prisma.user.findUnique({
+      where: {
+        id: authUser.id,
+      },
+    });
+
+    if (!user) {
+      throw new ApiError(404, "User not found.");
+    }
+
+    const updatedUser = await prisma.user.update({
+      where: {
+        id: authUser.id,
+      },
+      data: {
+        ...(name !== undefined && {
+          name,
+        }),
+        ...(phone !== undefined && {
+          phone,
+        }),
+      },
+      select: userPublicSelect,
+    });
+
+    sendSuccess(
+      res,
+      200,
+      "Profile updated successfully",
+      updatedUser
+    );
+
+
+  }
+);
+
+// ========================================
+// GOOGLE CALLBACK
+// GET /api/auth/google/callback
+// ========================================
 export const googleCallback = catchAsync(
   async (req: Request, res: Response) => {
     const user = req.user as {
@@ -95,8 +205,12 @@ export const googleCallback = catchAsync(
       email: string;
     };
 
+
     if (!user) {
-      throw new ApiError(401, "Google authentication failed.");
+      throw new ApiError(
+        401,
+        "Google authentication failed."
+      );
     }
 
     const token = signToken({
@@ -106,7 +220,11 @@ export const googleCallback = catchAsync(
     });
 
     res.redirect(
-      `${env.CLIENT_URL}/auth/google-success?token=${encodeURIComponent(token)}`
+      `${env.CLIENT_URL}/auth/google-success?token=${encodeURIComponent(
+        token
+      )}`
     );
+
+
   }
 );

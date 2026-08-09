@@ -3,17 +3,18 @@ import passport from "../config/passport";
 import { env } from "../config/env";
 
 import {
-  register,
-  login,
-  getMe,
-  googleCallback,
+register,
+login,
+getMe,
+updateMe,
+googleCallback,
 } from "../controllers/auth.controller";
 
 import validate from "../middleware/validate";
 
 import {
-  registerSchema,
-  loginSchema,
+registerSchema,
+loginSchema,
 } from "../validations/auth.validation";
 
 import { authenticate } from "../middleware/auth";
@@ -26,33 +27,65 @@ const FRONTEND_URL = env.CLIENT_URL;
 // Email / Password Authentication
 // ========================================
 
-router.post("/register", validate(registerSchema), register);
-router.post("/login", validate(loginSchema), login);
-router.get("/me", authenticate, getMe);
+router.post(
+"/register",
+validate(registerSchema),
+register
+);
+
+router.post(
+"/login",
+validate(loginSchema),
+login
+);
+
+// ========================================
+// Current User
+// ========================================
+
+// Get current logged-in user's profile
+router.get(
+"/me",
+authenticate,
+getMe
+);
+
+// Update current logged-in user's profile
+router.patch(
+"/me",
+authenticate,
+updateMe
+);
 
 // ========================================
 // Google OAuth
 // ========================================
 
 router.get(
-  "/google",
-  passport.authenticate("google", {
-    scope: ["profile", "email"],
-    session: false,
-  })
+"/google",
+passport.authenticate("google", {
+scope: ["profile", "email"],
+session: false,
+})
 );
 
 router.get(
-  "/google/callback",
-  passport.authenticate("google", {
-    session: false,
-    failureRedirect: `${FRONTEND_URL}/auth/login?error=google`,
-  }),
-  googleCallback
+"/google/callback",
+passport.authenticate("google", {
+session: false,
+failureRedirect: `${FRONTEND_URL}/auth/login?error=google`,
+}),
+googleCallback
 );
 
+// ========================================
+// Auth Test
+// ========================================
+
 router.get("/test", (req, res) => {
-  res.json({ message: "Auth route is working!" });
+res.json({
+message: "Auth route is working!",
+});
 });
 
 export default router;
