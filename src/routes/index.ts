@@ -6,11 +6,13 @@ import rentalRoutes from "./rental.routes";
 import paymentRoutes from "./payment.routes";
 import reviewRoutes from "./review.routes";
 import adminRoutes from "./admin.routes";
+import categoryRoutes from "./category.routes";
 
 const router = Router();
 
 router.use("/auth", authRoutes);
-router.use("/", gearRoutes); // /api/gear, /api/gear/:id, /api/categories
+router.use("/", gearRoutes);
+router.use("/categories", categoryRoutes);
 router.use("/provider", providerRoutes);
 router.use("/rentals", rentalRoutes);
 router.use("/payments", paymentRoutes);

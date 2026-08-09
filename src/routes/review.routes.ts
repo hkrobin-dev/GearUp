@@ -1,18 +1,19 @@
 import { Router } from "express";
-import { createReview } from "../controllers/review.controller";
-import { authenticate, authorize } from "../middleware/auth";
+import {
+  createReview,
+  getReviews,
+} from "../controllers/review.controller";
 import validate from "../middleware/validate";
 import { createReviewSchema } from "../validations/review.validation";
-import { getReviews } from "../controllers/review.controller";
 
 const router = Router();
 
+// GET /api/reviews
 router.get("/", getReviews);
 
+// POST /api/reviews
 router.post(
   "/",
-  authenticate,
-  authorize("CUSTOMER"),
   validate(createReviewSchema),
   createReview
 );
