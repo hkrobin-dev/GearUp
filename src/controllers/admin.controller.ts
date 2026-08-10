@@ -39,27 +39,206 @@ export const updateUserStatus = catchAsync(async (req: Request, res: Response) =
   sendSuccess(res, 200, "User status updated", updated);
 });
 
-export const getAllGearAdmin = catchAsync(async (req: Request, res: Response) => {
-  const gear = await prisma.gearItem.findMany({
-    include: { category: true, provider: { select: { id: true, name: true, email: true } } },
-    orderBy: { createdAt: "desc" },
-  });
+export const getAllGearAdmin = catchAsync(
+  async (req: Request, res: Response) => {
+    const page = Math.max(Number(req.query.page) || 1, 1);
+    const limit = Math.min(
+      Math.max(Number(req.query.limit) || 10, 1),
+      50,
+    );
 
-  sendSuccess(res, 200, "All gear listings fetched", gear);
-});
+    const search =
+      typeof req.query.search === "string"
+        ? req.query.search.trim()
+        : "";
 
-export const getAllRentalsAdmin = catchAsync(async (req: Request, res: Response) => {
-  const rentals = await prisma.rentalOrder.findMany({
-    include: {
-      customer: { select: { id: true, name: true, email: true } },
-      items: { include: { gearItem: true } },
-      payments: true,
-    },
-    orderBy: { createdAt: "desc" },
-  });
+    const status =
+      typeof req.query.status === "string"
+        ? req.query.status
+        : undefined;
 
-  sendSuccess(res, 200, "All rental orders fetched", rentals);
-});
+    const categoryId =
+      typeof req.query.categoryId === "string"
+        ? req.query.categoryId
+        : undefined;
+
+    const where = {
+      ...(search
+        ? {
+            OR: [
+              {
+                name: {
+                  contains: search,
+                  mode: "insensitive" as const,
+                },
+              },
+              {
+                brand: {
+                  contains: search,
+                  mode: "insensitive" as const,
+                },
+              },
+            ],
+          }
+        : {}),
+
+      ...(status && ["ACTIVE", "INACTIVE"].includes(status)
+        ? {
+            status: status as "ACTIVE" | "INACTIVE",
+          }
+        : {}),
+
+      ...(categoryId
+        ? {
+            categoryId,
+          }
+        : {}),
+    };
+
+    const [gear, total] = await prisma.$transaction([
+      prisma.gearItem.findMany({
+        where,
+        include: {
+          category: true,
+          provider: {
+            select: {
+              id: true,
+              name: true,
+              email: true,
+            },
+          },
+        },
+        orderBy: {
+          createdAt: "desc",
+        },
+        skip: (page - 1) * limit,
+        take: limit,
+      }),
+
+      prisma.gearItem.count({
+        where,
+      }),
+    ]);
+
+    const totalPages = Math.ceil(total / limit);
+
+    sendSuccess(res, 200, "All gear listings fetched", {
+      data: gear,
+      meta: {
+        page,
+        limit,
+        total,
+        totalPages,
+      },
+    });
+  },
+);
+
+export const getAllRentalsAdmin = catchAsync(
+  async (req: Request, res: Response) => {
+    const page = Math.max(Number(req.query.page) || 1, 1);
+
+    const limit = Math.min(
+      Math.max(Number(req.query.limit) || 10, 1),
+      50
+    );
+
+    const status =
+      typeof req.query.status === "string"
+        ? req.query.status
+        : undefined;
+
+    const search =
+      typeof req.query.search === "string"
+        ? req.query.search.trim()
+        : "";
+
+    const where = {
+      ...(status &&
+      [
+        "PLACED",
+        "CONFIRMED",
+        "CANCELLED",
+        "PAID",
+        "PICKED_UP",
+        "RETURNED",
+      ].includes(status)
+        ? {
+            status: status as
+              | "PLACED"
+              | "CONFIRMED"
+              | "CANCELLED"
+              | "PAID"
+              | "PICKED_UP"
+              | "RETURNED",
+          }
+        : {}),
+
+      ...(search
+        ? {
+            customer: {
+              OR: [
+                {
+                  name: {
+                    contains: search,
+                    mode: "insensitive" as const,
+                  },
+                },
+                {
+                  email: {
+                    contains: search,
+                    mode: "insensitive" as const,
+                  },
+                },
+              ],
+            },
+          }
+        : {}),
+    };
+
+    const [rentals, total] = await prisma.$transaction([
+      prisma.rentalOrder.findMany({
+        where,
+        include: {
+          customer: {
+            select: {
+              id: true,
+              name: true,
+              email: true,
+            },
+          },
+          items: {
+            include: {
+              gearItem: true,
+            },
+          },
+          payments: true,
+        },
+        orderBy: {
+          createdAt: "desc",
+        },
+        skip: (page - 1) * limit,
+        take: limit,
+      }),
+
+      prisma.rentalOrder.count({
+        where,
+      }),
+    ]);
+
+    const totalPages = Math.ceil(total / limit);
+
+    sendSuccess(res, 200, "All rental orders fetched", {
+      data: rentals,
+      meta: {
+        page,
+        limit,
+        total,
+        totalPages,
+      },
+    });
+  }
+);
 
 export const createCategory = catchAsync(async (req: Request, res: Response) => {
   const { name, description } = req.body;

@@ -53,7 +53,7 @@ export const addGear = catchAsync(async (req: Request, res: Response) => {
 // ============================================================
 const assertOwnership = async (
   gearId: string,
-  providerId: string
+  providerId: string,
 ) => {
   const gear = await prisma.gearItem.findUnique({
     where: { id: gearId },
@@ -73,49 +73,63 @@ const assertOwnership = async (
 // ============================================================
 // UPDATE GEAR
 // ============================================================
-export const updateGear = catchAsync(async (req: Request, res: Response) => {
-  const authUser = getAuthUser(req);
+export const updateGear = catchAsync(
+  async (req: Request, res: Response) => {
+    const authUser = getAuthUser(req);
 
-  await assertOwnership(req.params.id, authUser.id);
+    await assertOwnership(req.params.id, authUser.id);
 
-  const data = { ...req.body };
+    const data = { ...req.body };
 
-  // Keep availableStock in sync when stock is changed
-  if (data.stock !== undefined) {
-    const current = await prisma.gearItem.findUnique({
+    // Keep availableStock in sync when stock is changed
+    if (data.stock !== undefined) {
+      const current = await prisma.gearItem.findUnique({
+        where: { id: req.params.id },
+      });
+
+      const diff = data.stock - (current?.stock ?? 0);
+
+      data.availableStock = Math.max(
+        0,
+        (current?.availableStock ?? 0) + diff,
+      );
+    }
+
+    const gear = await prisma.gearItem.update({
       where: { id: req.params.id },
+      data,
     });
 
-    const diff = data.stock - (current?.stock ?? 0);
-
-    data.availableStock = Math.max(
-      0,
-      (current?.availableStock ?? 0) + diff
+    sendSuccess(
+      res,
+      200,
+      "Gear updated successfully",
+      gear,
     );
-  }
-
-  const gear = await prisma.gearItem.update({
-    where: { id: req.params.id },
-    data,
-  });
-
-  sendSuccess(res, 200, "Gear updated successfully", gear);
-});
+  },
+);
 
 // ============================================================
 // DELETE GEAR
 // ============================================================
-export const deleteGear = catchAsync(async (req: Request, res: Response) => {
-  const authUser = getAuthUser(req);
+export const deleteGear = catchAsync(
+  async (req: Request, res: Response) => {
+    const authUser = getAuthUser(req);
 
-  await assertOwnership(req.params.id, authUser.id);
+    await assertOwnership(req.params.id, authUser.id);
 
-  await prisma.gearItem.delete({
-    where: { id: req.params.id },
-  });
+    await prisma.gearItem.delete({
+      where: { id: req.params.id },
+    });
 
-  sendSuccess(res, 200, "Gear removed from inventory", null);
-});
+    sendSuccess(
+      res,
+      200,
+      "Gear removed from inventory",
+      null,
+    );
+  },
+);
 
 // ============================================================
 // GET PROVIDER GEAR
@@ -136,50 +150,176 @@ export const getProviderGear = catchAsync(
       },
     });
 
-    sendSuccess(res, 200, "Provider gear fetched", gear);
-  }
+    sendSuccess(
+      res,
+      200,
+      "Provider gear fetched",
+      gear,
+    );
+  },
 );
 
 // ============================================================
 // GET PROVIDER ORDERS
 // ============================================================
-// Orders that contain at least one of this provider's gear items
+// Supports:
+// ?page=1
+// ?limit=10
+// ?search=robin
+// ?status=PLACED
+//
+// Orders that contain at least one of this provider's gear items.
+// ============================================================
 export const getProviderOrders = catchAsync(
   async (req: Request, res: Response) => {
     const authUser = getAuthUser(req);
 
-    const orders = await prisma.rentalOrder.findMany({
-      where: {
-        items: {
-          some: {
-            gearItem: {
-              providerId: authUser.id,
-            },
-          },
-        },
-      },
-      include: {
-        customer: {
-          select: {
-            id: true,
-            name: true,
-            email: true,
-          },
-        },
-        items: {
-          include: {
-            gearItem: true,
-          },
-        },
-        payments: true,
-      },
-      orderBy: {
-        createdAt: "desc",
-      },
-    });
+    // --------------------------------------------------------
+    // Pagination
+    // --------------------------------------------------------
+    const page = Math.max(
+      Number(req.query.page) || 1,
+      1,
+    );
 
-    sendSuccess(res, 200, "Provider orders fetched", orders);
-  }
+    const limit = Math.min(
+      Math.max(Number(req.query.limit) || 10, 1),
+      50,
+    );
+
+    // --------------------------------------------------------
+    // Search
+    // --------------------------------------------------------
+    const search =
+      typeof req.query.search === "string"
+        ? req.query.search.trim()
+        : "";
+
+    // --------------------------------------------------------
+    // Status filter
+    // --------------------------------------------------------
+    const status =
+      typeof req.query.status === "string"
+        ? req.query.status
+        : undefined;
+
+    const validStatuses = [
+      "PLACED",
+      "CONFIRMED",
+      "CANCELLED",
+      "PAID",
+      "PICKED_UP",
+      "RETURNED",
+    ];
+
+    // --------------------------------------------------------
+    // WHERE condition
+    // --------------------------------------------------------
+    const where = {
+      items: {
+        some: {
+          gearItem: {
+            providerId: authUser.id,
+          },
+        },
+      },
+
+      ...(status && validStatuses.includes(status)
+        ? {
+            status: status as
+              | "PLACED"
+              | "CONFIRMED"
+              | "CANCELLED"
+              | "PAID"
+              | "PICKED_UP"
+              | "RETURNED",
+          }
+        : {}),
+
+      ...(search
+        ? {
+            customer: {
+              OR: [
+                {
+                  name: {
+                    contains: search,
+                    mode: "insensitive" as const,
+                  },
+                },
+                {
+                  email: {
+                    contains: search,
+                    mode: "insensitive" as const,
+                  },
+                },
+              ],
+            },
+          }
+        : {}),
+    };
+
+    // --------------------------------------------------------
+    // Get orders + total count
+    // --------------------------------------------------------
+    const [orders, total] =
+      await prisma.$transaction([
+        prisma.rentalOrder.findMany({
+          where,
+
+          include: {
+            customer: {
+              select: {
+                id: true,
+                name: true,
+                email: true,
+              },
+            },
+
+            items: {
+              include: {
+                gearItem: true,
+              },
+            },
+
+            payments: true,
+          },
+
+          orderBy: {
+            createdAt: "desc",
+          },
+
+          skip: (page - 1) * limit,
+          take: limit,
+        }),
+
+        prisma.rentalOrder.count({
+          where,
+        }),
+      ]);
+
+    // --------------------------------------------------------
+    // Pagination meta
+    // --------------------------------------------------------
+    const totalPages = Math.ceil(
+      total / limit,
+    );
+
+    sendSuccess(
+      res,
+      200,
+      "Provider orders fetched",
+      {
+        data: orders,
+
+        meta: {
+          page,
+          limit,
+          total,
+          totalPages,
+        },
+      },
+    );
+  },
 );
 
 // ============================================================
@@ -189,6 +329,7 @@ export const getProviderOrders = catchAsync(
 //
 // Provider can:
 // PLACED      -> CONFIRMED / CANCELLED
+// CONFIRMED   -> CANCELLED
 // PAID        -> PICKED_UP
 // PICKED_UP   -> RETURNED
 // ============================================================
@@ -198,47 +339,64 @@ export const updateOrderStatus = catchAsync(
 
     const { status } = req.body;
 
-    const order = await prisma.rentalOrder.findUnique({
-      where: {
-        id: req.params.id,
-      },
-      include: {
-        items: {
-          include: {
-            gearItem: true,
+    const order =
+      await prisma.rentalOrder.findUnique({
+        where: {
+          id: req.params.id,
+        },
+
+        include: {
+          items: {
+            include: {
+              gearItem: true,
+            },
           },
         },
-      },
-    });
+      });
 
     if (!order) {
-      throw new ApiError(404, "Rental order not found.");
+      throw new ApiError(
+        404,
+        "Rental order not found.",
+      );
     }
 
-    // Check whether this provider owns at least one gear item
-    // inside this order.
+    // Check whether this provider owns at least
+    // one gear item inside this order.
     const ownsOrder = order.items.some(
-      (item) => item.gearItem.providerId === authUser.id
+      (item) =>
+        item.gearItem.providerId ===
+        authUser.id,
     );
 
     if (!ownsOrder) {
       throw new ApiError(
         403,
-        "You do not have gear items in this order."
+        "You do not have gear items in this order.",
       );
     }
 
-    const validTransitions: Record<string, string[]> = {
-      PLACED: ["CONFIRMED", "CANCELLED"],
+    const validTransitions: Record<
+      string,
+      string[]
+    > = {
+      PLACED: [
+        "CONFIRMED",
+        "CANCELLED",
+      ],
       CONFIRMED: ["CANCELLED"],
       PAID: ["PICKED_UP"],
       PICKED_UP: ["RETURNED"],
     };
 
-    if (!validTransitions[order.status]?.includes(status)) {
+    if (
+      !validTransitions[order.status]?.includes(
+        status,
+      )
+    ) {
       throw new ApiError(
         400,
-        `Cannot transition order from ${order.status} to ${status}.`
+        `Cannot transition order from ${order.status} to ${status}.`,
       );
     }
 
@@ -252,13 +410,14 @@ export const updateOrderStatus = catchAsync(
             where: {
               id: item.gearItemId,
             },
+
             data: {
               availableStock: {
                 increment: item.quantity,
               },
             },
-          })
-        )
+          }),
+        ),
       );
     }
 
@@ -272,40 +431,45 @@ export const updateOrderStatus = catchAsync(
             where: {
               id: item.gearItemId,
             },
+
             data: {
               availableStock: {
                 increment: item.quantity,
               },
             },
-          })
-        )
+          }),
+        ),
       );
     }
 
     // ========================================================
     // UPDATE ORDER STATUS
     // ========================================================
-    const updated = await prisma.rentalOrder.update({
-      where: {
-        id: req.params.id,
-      },
-      data: {
-        status,
-      },
-      include: {
-        items: {
-          include: {
-            gearItem: true,
+    const updated =
+      await prisma.rentalOrder.update({
+        where: {
+          id: req.params.id,
+        },
+
+        data: {
+          status,
+        },
+
+        include: {
+          items: {
+            include: {
+              gearItem: true,
+            },
           },
         },
-      },
-    });
+      });
 
     sendSuccess(
       res,
       200,
       "Order status updated",
-      updated
+      updated,
     );
-  }
+  },
 );
+
