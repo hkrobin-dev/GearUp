@@ -250,3 +250,42 @@ export const createCategory = catchAsync(async (req: Request, res: Response) => 
 
   sendSuccess(res, 201, "Category created successfully", category);
 });
+export const updateCategory = catchAsync(async (req: Request, res: Response) => {
+  const { name, description } = req.body;
+
+  const category = await prisma.category.findUnique({
+    where: { id: req.params.id },
+  });
+  if (!category) throw new ApiError(404, "Category not found.");
+
+  if (name && name !== category.name) {
+    const nameTaken = await prisma.category.findUnique({ where: { name } });
+    if (nameTaken) throw new ApiError(409, "Category with this name already exists.");
+  }
+
+  const updated = await prisma.category.update({
+    where: { id: req.params.id },
+    data: { name, description },
+  });
+
+  sendSuccess(res, 200, "Category updated successfully", updated);
+});
+
+export const deleteCategory = catchAsync(async (req: Request, res: Response) => {
+  const category = await prisma.category.findUnique({
+    where: { id: req.params.id },
+    include: { _count: { select: { gearItems: true } } },
+  });
+  if (!category) throw new ApiError(404, "Category not found.");
+
+  if (category._count.gearItems > 0) {
+    throw new ApiError(
+      400,
+      `Cannot delete category with ${category._count.gearItems} gear item(s) still assigned to it. Reassign or remove that gear first.`
+    );
+  }
+
+  await prisma.category.delete({ where: { id: req.params.id } });
+
+  sendSuccess(res, 200, "Category deleted successfully", null);
+});

@@ -10,3 +10,18 @@ export const updateUserStatusSchema = z.object({
     id: z.string().uuid("Invalid user ID"),
   }),
 });
+export const updateCategorySchema = z.object({
+  body: z.object({
+    name: z.string().min(2).optional(),
+    description: z.string().optional(),
+  }),
+  params: z.object({
+    id: z.string().uuid("Invalid category ID"),
+  }),
+});
+
+export const categoryIdParamSchema = z.object({
+  params: z.object({
+    id: z.string().uuid("Invalid category ID"),
+  }),
+});
